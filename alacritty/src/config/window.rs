@@ -39,6 +39,9 @@ pub struct WindowConfig {
     /// Spread out additional padding evenly.
     pub dynamic_padding: bool,
 
+    /// Split the terminal into newspaper pillars.
+    pub pillars: Pillars,
+
     /// Use dynamic title.
     pub dynamic_title: bool,
 
@@ -73,6 +76,7 @@ impl Default for WindowConfig {
             embed: Default::default(),
             decorations_theme_variant: Default::default(),
             dynamic_padding: Default::default(),
+            pillars: Default::default(),
             identity: Identity::default(),
             opacity: Default::default(),
             padding: Default::default(),
@@ -262,4 +266,30 @@ impl<'de> Deserialize<'de> for Class {
 
         deserializer.deserialize_any(ClassVisitor)
     }
+}
+
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
+pub struct Pillars {
+    pub width: usize,
+    pub max_width: Option<usize>,
+    pub padding: usize,
+    pub justify: Justify,
+}
+
+impl Default for Pillars {
+    fn default() -> Self {
+        Self {
+            width: usize::MAX,
+            max_width: None,
+            padding: 0,
+            justify: Justify::Left,
+        }
+    }
+}
+
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
+pub enum Justify {
+    Left,
+    Center,
+    Right,
 }

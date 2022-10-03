@@ -22,6 +22,8 @@ flat out vec4 bg;
 // Terminal properties
 uniform vec2 cellDim;
 uniform vec4 projection;
+// Stride and height of pillars
+uniform vec2 pillarCfg;
 
 uniform int renderingPass;
 
@@ -37,7 +39,13 @@ void main() {
     position.y = (gl_VertexID == 0 || gl_VertexID == 3) ? 0. : 1.;
 
     // Position of cell from top-left
-    vec2 cellPosition = cellDim * gridCoords;
+    uint pillar = uint(gridCoords.y) / uint(pillarCfg.y);
+    uint row = uint(gridCoords.y) % uint(pillarCfg.y);
+
+    vec2 cellPosition = vec2(
+        gridCoords.x * cellDim.x + pillar * pillarCfg.x,
+        row * cellDim.y
+    );
 
     fg = vec4(textColor.rgb / 255.0, textColor.a);
     bg = backgroundColor / 255.0;

@@ -440,8 +440,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     fn cell_side(&self, x: usize) -> Side {
         let size_info = self.ctx.size_info();
 
-        let cell_x =
-            x.saturating_sub(size_info.padding_x() as usize) % size_info.cell_width() as usize;
+        let cell_x = (x.saturating_sub(size_info.padding_x() as usize)
+            % size_info.pillar_stride() as usize)
+            % size_info.cell_width() as usize;
         let half_cell_width = (size_info.cell_width() / 2.0) as usize;
 
         let additional_padding =
