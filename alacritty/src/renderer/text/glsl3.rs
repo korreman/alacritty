@@ -416,6 +416,9 @@ pub struct TextShaderProgram {
     /// Cell dimensions (pixels).
     u_cell_dim: GLint,
 
+    /// Pillar stride and physical height
+    u_pillar_cfg: GLint,
+
     /// Background pass flag.
     ///
     /// Rendering is split into two passes; one for backgrounds, and one for text.
@@ -428,6 +431,7 @@ impl TextShaderProgram {
         Ok(Self {
             u_projection: program.get_uniform_location(cstr!("projection"))?,
             u_cell_dim: program.get_uniform_location(cstr!("cellDim"))?,
+            u_pillar_cfg: program.get_uniform_location(cstr!("pillarCfg"))?,
             u_rendering_pass: program.get_uniform_location(cstr!("renderingPass"))?,
             program,
         })
@@ -436,6 +440,7 @@ impl TextShaderProgram {
     fn set_term_uniforms(&self, props: &SizeInfo) {
         unsafe {
             gl::Uniform2f(self.u_cell_dim, props.cell_width(), props.cell_height());
+            gl::Uniform2f(self.u_pillar_cfg, props.pillar_stride(), props.physical_lines() as f32);
         }
     }
 

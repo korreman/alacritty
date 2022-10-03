@@ -35,9 +35,9 @@ use alacritty_terminal::term::{
 use alacritty_terminal::vte::ansi::{CursorShape, NamedColor};
 
 use crate::config::font::Font;
-use crate::config::window::Dimensions;
 #[cfg(not(windows))]
 use crate::config::window::StartupMode;
+use crate::config::window::{Dimensions, Pillars};
 use crate::config::UiConfig;
 use crate::display::bell::VisualBell;
 use crate::display::color::{List, Rgb};
@@ -158,11 +158,23 @@ pub struct SizeInfo<T = f32> {
     /// Vertical window padding.
     padding_y: T,
 
-    /// Number of lines in the viewport.
-    screen_lines: usize,
-
-    /// Number of columns in the viewport.
+    /// Number of columns in the virtual viewport.
     columns: usize,
+
+    /// Number of lines in the physical terminal.
+    physical_lines: usize,
+
+    /// Whether pillars are enabled or not.
+    pillars_enabled: bool,
+
+    /// Number of pillars
+    pillars: usize,
+
+    /// Number of lines in the virtual (long) viewport.
+    virtual_lines: usize,
+
+    /// Stride between pillars.
+    pillar_stride: T,
 }
 
 impl From<SizeInfo<f32>> for SizeInfo<u32> {
@@ -174,8 +186,12 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
             cell_height: size_info.cell_height as u32,
             padding_x: size_info.padding_x as u32,
             padding_y: size_info.padding_y as u32,
-            screen_lines: size_info.screen_lines,
-            columns: size_info.screen_lines,
+            columns: size_info.columns,
+            physical_lines: size_info.physical_lines,
+            pillars_enabled: size_info.pillars_enabled,
+            pillars: size_info.pillars,
+            virtual_lines: size_info.virtual_lines,
+            pillar_stride: size_info.pillar_stride as u32,
         }
     }
 }
@@ -221,6 +237,21 @@ impl<T: Clone + Copy> SizeInfo<T> {
     pub fn padding_y(&self) -> T {
         self.padding_y
     }
+
+    #[inline]
+    pub fn physical_lines(&self) -> usize {
+        self.physical_lines
+    }
+
+    #[inline]
+    pub fn pillars(&self) -> usize {
+        self.pillars
+    }
+
+    #[inline]
+    pub fn pillar_stride(&self) -> T {
+        self.pillar_stride
+    }
 }
 
 impl SizeInfo<f32> {
@@ -233,17 +264,44 @@ impl SizeInfo<f32> {
         mut padding_x: f32,
         mut padding_y: f32,
         dynamic_padding: bool,
+        pillar_config: Option<&Pillars>,
     ) -> SizeInfo {
-        if dynamic_padding {
-            padding_x = Self::dynamic_padding(padding_x.floor(), width, cell_width);
-            padding_y = Self::dynamic_padding(padding_y.floor(), height, cell_height);
-        }
-
         let lines = (height - 2. * padding_y) / cell_height;
-        let screen_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
+        let physical_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
+        let padded_width = width - 2. * padding_x;
 
-        let columns = (width - 2. * padding_x) / cell_width;
-        let columns = cmp::max(columns as usize, MIN_COLUMNS);
+        let (pillars, columns) = if let Some(pillar_config) = pillar_config {
+            // Make as many pillars as can fit with `width` columns.
+            let min_pillar_width = cell_width * pillar_config.width as f32;
+            let pillars = 1
+                + ((padded_width - min_pillar_width)
+                    / (min_pillar_width + pillar_config.padding as f32)) as usize;
+            // Fit as many columns as possible, clamped between MIN_COLUMNS and an optional slack.
+            let columns =
+                (padded_width / pillars as f32 - pillar_config.padding as f32) / cell_width;
+            let mut columns = (columns as usize).max(MIN_COLUMNS);
+            if let Some(slack) = pillar_config.slack {
+                columns = columns.min(pillar_config.width + slack);
+            }
+            (pillars, columns)
+        } else {
+            (1, (padded_width / cell_width) as usize)
+        };
+
+        // TODO: Spread out pillars may have a few pixels left over, deal with these.
+        let virtual_lines = pillars * physical_lines;
+        let pillar_stride = if pillars > 1 {
+            (padded_width - columns as f32 * cell_width) / (pillars as f32 - 1.)
+        } else {
+            padded_width
+        };
+        if dynamic_padding {
+            // If there are multiple pillars, make these fill out the space rather than padding.
+            if pillars == 1 {
+                padding_x = Self::dynamic_padding(padding_x, width, cell_width);
+            }
+            padding_y = Self::dynamic_padding(padding_y, width, cell_width);
+        }
 
         SizeInfo {
             width,
@@ -252,14 +310,18 @@ impl SizeInfo<f32> {
             cell_height,
             padding_x: padding_x.floor(),
             padding_y: padding_y.floor(),
-            screen_lines,
             columns,
+            physical_lines,
+            pillars_enabled: pillar_config.is_some(),
+            pillars,
+            virtual_lines,
+            pillar_stride: pillar_stride.floor(),
         }
     }
 
     #[inline]
     pub fn reserve_lines(&mut self, count: usize) {
-        self.screen_lines = cmp::max(self.screen_lines.saturating_sub(count), MIN_SCREEN_LINES);
+        self.virtual_lines = cmp::max(self.virtual_lines.saturating_sub(count), MIN_SCREEN_LINES);
     }
 
     /// Check if coordinates are inside the terminal grid.
@@ -267,9 +329,10 @@ impl SizeInfo<f32> {
     /// The padding, message bar or search are not counted as part of the grid.
     #[inline]
     pub fn contains_point(&self, x: usize, y: usize) -> bool {
-        x <= (self.padding_x + self.columns as f32 * self.cell_width) as usize
+        (x - self.padding_x as usize) % self.pillar_stride as usize
+            <= self.columns * self.cell_width as usize
             && x > self.padding_x as usize
-            && y <= (self.padding_y + self.screen_lines as f32 * self.cell_height) as usize
+            && y <= (self.padding_y + self.physical_lines as f32 * self.cell_height) as usize
             && y > self.padding_y as usize
     }
 
@@ -277,6 +340,33 @@ impl SizeInfo<f32> {
     #[inline]
     fn dynamic_padding(padding: f32, dimension: f32, cell_dimension: f32) -> f32 {
         padding + ((dimension - 2. * padding) % cell_dimension) / 2.
+    }
+
+    /// Compute the surface position of a cell point when taking pillars into account.
+    #[inline]
+    pub fn position(&self, point: Point<usize>) -> (f32, f32) {
+        let pillar = point.line / self.physical_lines;
+        let x = point.column.0 as f32 * self.cell_width
+            + pillar as f32 * self.pillar_stride
+            + self.padding_x;
+        let y = (point.line % self.physical_lines) as f32 * self.cell_height + self.padding_y;
+        (x, y)
+    }
+
+    /// Compute the nearest virtual grid cell to the given surface position.
+    #[inline]
+    pub fn point(&self, (x, y): (f32, f32)) -> Point<usize> {
+        // De-offset with paddings
+        let fixed_x = (x - self.padding_x).max(0.0);
+        let fixed_y = (y - self.padding_y).max(0.0);
+
+        // Find column while taking pillars into account using the pillar stride
+        let col = ((fixed_x % self.pillar_stride) / self.cell_width) as usize;
+        let col = Column(col).min(self.last_column());
+        let pillar = (fixed_x / self.pillar_stride) as usize;
+
+        let line = (fixed_y / self.cell_height) as usize + pillar * self.physical_lines;
+        Point::new(line, col)
     }
 }
 
@@ -288,7 +378,7 @@ impl TermDimensions for SizeInfo {
 
     #[inline]
     fn screen_lines(&self) -> usize {
-        self.screen_lines
+        self.virtual_lines
     }
 
     #[inline]
@@ -303,6 +393,7 @@ pub struct DisplayUpdate {
 
     dimensions: Option<PhysicalSize<u32>>,
     cursor_dirty: bool,
+    pillars: Option<bool>,
     font: Option<Font>,
 }
 
@@ -321,6 +412,11 @@ impl DisplayUpdate {
 
     pub fn set_dimensions(&mut self, dimensions: PhysicalSize<u32>) {
         self.dimensions = Some(dimensions);
+        self.dirty = true;
+    }
+
+    pub fn set_pillars(&mut self, pillars: bool) {
+        self.pillars = Some(pillars);
         self.dirty = true;
     }
 
@@ -448,6 +544,7 @@ impl Display {
             padding.0,
             padding.1,
             config.window.dynamic_padding && config.window.dimensions().is_none(),
+            config.window.pillars.enable.then_some(&config.window.pillars),
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
@@ -633,6 +730,7 @@ impl Display {
         }
 
         let padding = config.window.padding(self.window.scale_factor as f32);
+        let pillars = pending_update.pillars.unwrap_or(self.size_info.pillars_enabled);
 
         let mut new_size = SizeInfo::new(
             width,
@@ -642,6 +740,7 @@ impl Display {
             padding.0,
             padding.1,
             config.window.dynamic_padding,
+            pillars.then_some(&config.window.pillars),
         );
 
         // Update number of column/lines in the viewport.
@@ -656,7 +755,7 @@ impl Display {
         }
 
         // Resize when terminal when its dimensions have changed.
-        if self.size_info.screen_lines() != new_size.screen_lines
+        if self.size_info.screen_lines() != new_size.screen_lines()
             || self.size_info.columns() != new_size.columns()
         {
             // Resize PTY.
@@ -835,6 +934,16 @@ impl Display {
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
+        for i in 1..size_info.pillars {
+            let width = config.window.pillars.separator_width;
+            let offset =
+                (size_info.pillar_stride - size_info.columns as f32 * size_info.cell_width) / 2.;
+            let x = size_info.pillar_stride * i as f32 - offset - width / 2.;
+            let height = size_info.height;
+            let color = config.colors.pillars.separator;
+            let rect = RenderRect::new(x, 0., width, height, color, 1.);
+            rects.push(rect);
+        }
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.

@@ -34,6 +34,9 @@ pub struct WindowConfig {
     /// Spread out additional padding evenly.
     pub dynamic_padding: bool,
 
+    /// Split the terminal into newspaper pillars.
+    pub pillars: Pillars,
+
     /// Use dynamic title.
     pub dynamic_title: bool,
 
@@ -71,6 +74,7 @@ impl Default for WindowConfig {
             embed: Default::default(),
             padding: Default::default(),
             opacity: Default::default(),
+            pillars: Default::default(),
             position: Default::default(),
             identity: Default::default(),
             dimensions: Default::default(),
@@ -303,6 +307,27 @@ impl From<Theme> for WinitTheme {
         match theme {
             Theme::Light => WinitTheme::Light,
             Theme::Dark => WinitTheme::Dark,
+        }
+    }
+}
+
+#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
+pub struct Pillars {
+    pub enable: bool,
+    pub width: usize,
+    pub slack: Option<usize>,
+    pub padding: usize,
+    pub separator_width: f32,
+}
+
+impl Default for Pillars {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            width: i16::MAX as usize,
+            slack: None,
+            padding: 0,
+            separator_width: 2.
         }
     }
 }

@@ -99,6 +99,7 @@ pub trait ActionContext<T: EventListener> {
     fn create_new_window(&mut self, _tabbing_id: Option<String>) {}
     #[cfg(not(target_os = "macos"))]
     fn create_new_window(&mut self) {}
+    fn toggle_pillars(&mut self) {}
     fn change_font_size(&mut self, _delta: f32) {}
     fn reset_font_size(&mut self) {}
     fn pop_message(&mut self) {}
@@ -322,6 +323,7 @@ impl<T: EventListener> Execute<T> for Action {
             Action::Hide => ctx.window().set_visible(false),
             Action::Minimize => ctx.window().set_minimized(true),
             Action::Quit => ctx.terminal_mut().exit(),
+            Action::TogglePillars => ctx.toggle_pillars(),
             Action::IncreaseFontSize => ctx.change_font_size(FONT_SIZE_STEP),
             Action::DecreaseFontSize => ctx.change_font_size(-FONT_SIZE_STEP),
             Action::ResetFontSize => ctx.reset_font_size(),
@@ -492,8 +494,9 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
     fn cell_side(&self, x: usize) -> Side {
         let size_info = self.ctx.size_info();
 
-        let cell_x =
-            x.saturating_sub(size_info.padding_x() as usize) % size_info.cell_width() as usize;
+        let cell_x = (x.saturating_sub(size_info.padding_x() as usize)
+            % size_info.pillar_stride() as usize)
+            % size_info.cell_width() as usize;
         let half_cell_width = (size_info.cell_width() / 2.0) as usize;
 
         let additional_padding =
@@ -1021,21 +1024,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Check mouse icon state in relation to the message bar.
     fn message_bar_cursor_state(&self) -> Option<CursorIcon> {
-        // Since search is above the message bar, the button is offset by search's height.
-        let search_height = usize::from(self.ctx.search_active());
-
-        // Calculate Y position of the end of the last terminal line.
-        let size = self.ctx.size_info();
-        let terminal_end = size.padding_y() as usize
-            + size.cell_height() as usize * (size.screen_lines() + search_height);
-
+        // Calculate the coordinate of the mouse in the virtual grid.
         let mouse = self.ctx.mouse();
-        let display_offset = self.ctx.terminal().grid().display_offset();
-        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+        let size = self.ctx.size_info();
+        let point = size.point((mouse.x as f32, mouse.y as f32));
 
-        if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
+        // The line coordinate of the close button in the virtual grid.
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let close_button_line: usize = size.screen_lines() - display_offset;
+
+        // Problem: the point is clamped inside the terminal
+        if self.ctx.message().is_none() || (point.line < close_button_line) {
             None
-        } else if mouse.y <= terminal_end + size.cell_height() as usize
+        } else if point.line == close_button_line
             && point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.columns()
         {
             Some(CursorIcon::Pointer)

@@ -55,6 +55,7 @@ pub struct WindowContext {
     inline_search_state: InlineSearchState,
     search_state: SearchState,
     notifier: Notifier,
+    pillars: bool,
     mouse: Mouse,
     touch: TouchPurpose,
     occluded: bool,
@@ -237,9 +238,12 @@ impl WindowContext {
             event_proxy.send_event(TerminalEvent::CursorBlinkingChange.into());
         }
 
+        let pillars = config.window.pillars.enable;
+
         // Create context for the Alacritty window.
         Ok(WindowContext {
             preserve_title,
+            pillars,
             terminal,
             display,
             #[cfg(not(windows))]
@@ -277,6 +281,14 @@ impl WindowContext {
             self.display.pending_update.set_cursor_dirty();
         }
 
+        if old_config.window.pillars.enable != self.config.window.pillars.enable {
+            // Do not update pillars if they have been changed at runtime.
+            if self.pillars == old_config.window.pillars.enable {
+                self.pillars = self.config.window.pillars.enable;
+            }
+            self.display.pending_update.set_pillars(self.pillars);
+        }
+
         if old_config.font != self.config.font {
             let scale_factor = self.display.window.scale_factor as f32;
             // Do not update font size if it has been changed at runtime.
@@ -291,11 +303,12 @@ impl WindowContext {
         // Always reload the theme to account for auto-theme switching.
         self.display.window.set_theme(self.config.window.theme());
 
-        // Update display if either padding options or resize increments were changed.
+        // Update display if padding, resize increments, or pillar options were changed.
         let window_config = &old_config.window;
         if window_config.padding(1.) != self.config.window.padding(1.)
             || window_config.dynamic_padding != self.config.window.dynamic_padding
             || window_config.resize_increments != self.config.window.resize_increments
+            || window_config.pillars != self.config.window.pillars
         {
             self.display.pending_update.dirty = true;
         }
@@ -431,6 +444,7 @@ impl WindowContext {
             inline_search_state: &mut self.inline_search_state,
             search_state: &mut self.search_state,
             modifiers: &mut self.modifiers,
+            pillars: &mut self.pillars,
             notifier: &mut self.notifier,
             display: &mut self.display,
             mouse: &mut self.mouse,

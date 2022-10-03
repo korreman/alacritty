@@ -222,6 +222,7 @@ pub struct ActionContext<'a, N, T> {
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
     pub inline_search_state: &'a mut InlineSearchState,
+    pub pillars: &'a mut bool,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
     pub preserve_title: bool,
@@ -461,6 +462,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Ok(_) => debug!("Launched {} with args {:?}", program, args),
             Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
         }
+    }
+
+    fn toggle_pillars(&mut self) {
+        *self.pillars = !*self.pillars;
+        self.display.pending_update.set_pillars(*self.pillars);
     }
 
     fn change_font_size(&mut self, delta: f32) {
@@ -1249,13 +1255,9 @@ impl Mouse {
     /// coordinates will be clamped to the closest grid coordinates.
     #[inline]
     pub fn point(&self, size: &SizeInfo, display_offset: usize) -> Point {
-        let col = self.x.saturating_sub(size.padding_x() as usize) / (size.cell_width() as usize);
-        let col = min(Column(col), size.last_column());
-
-        let line = self.y.saturating_sub(size.padding_y() as usize) / (size.cell_height() as usize);
-        let line = min(line, size.bottommost_line().0 as usize);
-
-        term::viewport_to_point(display_offset, Point::new(line, col))
+        let point = size.point((self.x as f32, self.y as f32));
+        let line = point.line.min(size.bottommost_line().0 as usize);
+        term::viewport_to_point(display_offset, Point::new(line, point.column))
     }
 }
 
