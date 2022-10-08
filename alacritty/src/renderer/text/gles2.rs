@@ -283,7 +283,7 @@ impl TextRenderBatch for Batch {
 
         // Calculate the glyph position.
         let glyph_x = x + glyph.left;
-        let glyph_y = y - glyph.top;
+        let glyph_y = y + size_info.cell_height() as i16 - glyph.top;
 
         let colored = if glyph.multicolor {
             RenderingGlyphFlags::COLORED
