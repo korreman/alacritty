@@ -261,7 +261,7 @@ impl SizeInfo<f32> {
         let pillars = 1
             + (f32::max(0.0, active_width - min_pillar_width)
                 / (min_pillar_width + pillar_config.padding as f32)) as usize;
-        let pillar_stride = active_width / pillars as f32;
+        let pillar_stride = (active_width / pillars as f32).round();
 
         let columns = (active_width / cell_width) as usize / pillars;
         let columns = columns.clamp(MIN_COLUMNS, pillar_config.max_width.unwrap_or(usize::MAX));
@@ -311,10 +311,10 @@ impl SizeInfo<f32> {
         padding + ((dimension - 2. * padding) % cell_dimension) / 2.
     }
 
-    /// Compute the position of a cell point taking pillars into account.
+    /// Compute the position of a cell point when taking pillars into account.
     #[inline]
     pub fn position(&self, point: Point<usize>) -> (f32, f32) {
-        let pillar = point.line / self.screen_lines();
+        let pillar = point.line / self.physical_lines();
         let x = point.column.0 as f32 * self.cell_width()
             + pillar as f32 * self.pillar_stride()
             + self.padding_x();
