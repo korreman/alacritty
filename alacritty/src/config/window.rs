@@ -278,7 +278,7 @@ pub struct Pillars {
 
 impl Default for Pillars {
     fn default() -> Self {
-        Self { width: usize::MAX, slack: None, padding: 0, justify: Justify::Left }
+        Self { width: i16::MAX as usize, slack: None, padding: 0, justify: Justify::Left }
     }
 }
 
