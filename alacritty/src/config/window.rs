@@ -271,19 +271,14 @@ impl<'de> Deserialize<'de> for Class {
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
 pub struct Pillars {
     pub width: usize,
-    pub max_width: Option<usize>,
+    pub slack: Option<usize>,
     pub padding: usize,
     pub justify: Justify,
 }
 
 impl Default for Pillars {
     fn default() -> Self {
-        Self {
-            width: usize::MAX,
-            max_width: None,
-            padding: 0,
-            justify: Justify::Left,
-        }
+        Self { width: usize::MAX, slack: None, padding: 0, justify: Justify::Left }
     }
 }
 
