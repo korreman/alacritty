@@ -264,8 +264,10 @@ impl SizeInfo<f32> {
         let pillar_stride = (active_width / pillars as f32).round();
 
         let columns = (active_width / cell_width) as usize / pillars;
-        let columns = columns
-            .clamp(MIN_COLUMNS, pillar_config.width + pillar_config.slack.unwrap_or(usize::MAX));
+        let columns = columns.clamp(
+            MIN_COLUMNS,
+            pillar_config.width + pillar_config.slack.unwrap_or(isize::MAX as usize),
+        );
 
         let virtual_lines = physical_lines * pillars;
         if dynamic_padding {
