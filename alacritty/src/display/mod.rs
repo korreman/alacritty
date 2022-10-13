@@ -314,15 +314,31 @@ impl SizeInfo<f32> {
         padding + ((dimension - 2. * padding) % cell_dimension) / 2.
     }
 
-    /// Compute the position of a cell point when taking pillars into account.
+    /// Compute the surface position of a cell point when taking pillars into account.
     #[inline]
     pub fn position(&self, point: Point<usize>) -> (f32, f32) {
-        let pillar = point.line / self.physical_lines();
-        let x = point.column.0 as f32 * self.cell_width()
-            + pillar as f32 * self.pillar_stride()
-            + self.padding_x();
-        let y = (point.line % self.physical_lines()) as f32 * self.cell_height() + self.padding_y();
+        let pillar = point.line / self.physical_lines;
+        let x = point.column.0 as f32 * self.cell_width
+            + pillar as f32 * self.pillar_stride
+            + self.padding_x;
+        let y = (point.line % self.physical_lines) as f32 * self.cell_height + self.padding_y;
         (x, y)
+    }
+
+    /// Compute the nearest virtual grid cell to the given surface position.
+    #[inline]
+    pub fn point(&self, (x, y): (f32, f32)) -> Point<usize> {
+        // De-offset with paddings
+        let fixed_x = (x - self.padding_x).max(0.0);
+        let fixed_y = (y - self.padding_y).max(0.0);
+
+        // Find column while taking pillars into account using the pillar stride
+        let col = ((fixed_x % self.pillar_stride) / self.cell_width) as usize;
+        let col = Column(col).min(self.last_column());
+        let pillar = (fixed_x / self.pillar_stride) as usize;
+
+        let line = (fixed_y / self.cell_height) as usize + pillar * self.physical_lines;
+        Point::new(line, col)
     }
 }
 

@@ -1078,21 +1078,19 @@ impl<T: EventListener, A: ActionContext<T>> Processor<T, A> {
 
     /// Check mouse icon state in relation to the message bar.
     fn message_bar_cursor_state(&self) -> Option<CursorIcon> {
-        // Since search is above the message bar, the button is offset by search's height.
-        let search_height = usize::from(self.ctx.search_active());
-
-        // Calculate Y position of the end of the last terminal line.
-        let size = self.ctx.size_info();
-        let terminal_end = size.padding_y() as usize
-            + size.cell_height() as usize * (size.screen_lines() + search_height);
-
+        // Calculate the coordinate of the mouse in the virtual grid.
         let mouse = self.ctx.mouse();
-        let display_offset = self.ctx.terminal().grid().display_offset();
-        let point = self.ctx.mouse().point(&self.ctx.size_info(), display_offset);
+        let size = self.ctx.size_info();
+        let point = size.point((mouse.x as f32, mouse.y as f32));
 
-        if self.ctx.message().is_none() || (mouse.y <= terminal_end) {
+        // The line coordinate of the close button in the virtual grid.
+        let display_offset = self.ctx.terminal().grid().display_offset();
+        let close_button_line: usize = size.screen_lines() - display_offset;
+
+        // Problem: the point is clamped inside the terminal
+        if self.ctx.message().is_none() || (point.line < close_button_line) {
             None
-        } else if mouse.y <= terminal_end + size.cell_height() as usize
+        } else if point.line == close_button_line
             && point.column + message_bar::CLOSE_BUTTON_TEXT.len() >= size.columns()
         {
             Some(CursorIcon::Hand)
