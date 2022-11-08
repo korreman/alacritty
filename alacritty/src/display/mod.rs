@@ -930,12 +930,12 @@ impl Display {
 
         let mut rects = lines.rects(&metrics, &size_info);
         for i in 1..size_info.pillars {
-            let width = 2.;
+            let width = config.window.pillars.separator_width;
             let offset =
                 (size_info.pillar_stride - size_info.columns as f32 * size_info.cell_width) / 2.;
             let x = size_info.pillar_stride * i as f32 - offset - width / 2.;
             let height = size_info.height;
-            let color = config.colors.primary.foreground;
+            let color = config.colors.pillars.separator;
             let rect = RenderRect::new(x, 0., width, height, color, 1.);
             rects.push(rect);
         }

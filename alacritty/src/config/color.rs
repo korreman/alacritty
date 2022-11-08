@@ -16,6 +16,7 @@ pub struct Colors {
     pub indexed_colors: Vec<IndexedColor>,
     pub search: SearchColors,
     pub line_indicator: LineIndicatorColors,
+    pub pillars: PillarColors,
     pub hints: HintColors,
     pub transparent_background_colors: bool,
     footer_bar: BarColors,
@@ -263,5 +264,16 @@ impl Default for DimColors {
             cyan: Rgb::new(0x5b, 0x7d, 0x78),
             white: Rgb::new(0x82, 0x84, 0x82),
         }
+    }
+}
+
+#[derive(ConfigDeserialize, Clone, Debug, PartialEq, Eq)]
+pub struct PillarColors {
+    pub separator: Rgb,
+}
+
+impl Default for PillarColors {
+    fn default() -> Self {
+        PillarColors { separator: Rgb { r: 0x82, g: 0x84, b: 0x82 } }
     }
 }

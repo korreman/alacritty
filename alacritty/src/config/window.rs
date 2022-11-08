@@ -273,10 +273,11 @@ pub struct Pillars {
     pub width: usize,
     pub slack: Option<usize>,
     pub padding: usize,
+    pub separator_width: f32,
 }
 
 impl Default for Pillars {
     fn default() -> Self {
-        Self { width: i16::MAX as usize, slack: None, padding: 0 }
+        Self { width: i16::MAX as usize, slack: None, padding: 0, separator_width: 2.}
     }
 }
