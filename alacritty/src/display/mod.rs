@@ -267,7 +267,7 @@ impl SizeInfo<f32> {
                 (padded_width / pillars as f32 - pillar_config.padding as f32) / cell_width;
             let mut columns = (columns as usize).max(MIN_COLUMNS);
             if let Some(slack) = pillar_config.slack {
-                columns = columns.min(columns + slack);
+                columns = columns.min(pillar_config.width + slack);
             }
             (pillars, columns)
         } else {
