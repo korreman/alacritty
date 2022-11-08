@@ -250,32 +250,44 @@ impl SizeInfo<f32> {
         mut padding_x: f32,
         mut padding_y: f32,
         dynamic_padding: bool,
-        pillar_config: &Pillars,
+        pillar_config: Option<&Pillars>,
     ) -> SizeInfo {
         let lines = (height - 2. * padding_y) / cell_height;
         let physical_lines = cmp::max(lines as usize, MIN_SCREEN_LINES);
+        let padded_width = width - 2. * padding_x;
 
-        let active_width = width - 2. * padding_x;
+        let (pillars, columns) = if let Some(pillar_config) = pillar_config {
+            // Make as many pillars as can fit with `width` columns.
+            let min_pillar_width = cell_width * pillar_config.width as f32;
+            let pillars = 1
+                + ((padded_width - min_pillar_width)
+                    / (min_pillar_width + pillar_config.padding as f32)) as usize;
+            // Fit as many columns as possible, clamped between MIN_COLUMNS and an optional slack.
+            let columns =
+                (padded_width / pillars as f32 - pillar_config.padding as f32) / cell_width;
+            let mut columns = (columns as usize).max(MIN_COLUMNS);
+            if let Some(slack) = pillar_config.slack {
+                columns = columns.min(columns + slack);
+            }
+            (pillars, columns)
+        } else {
+            (1, (padded_width / cell_width) as usize)
+        };
 
-        let min_pillar_width = pillar_config.width as f32 * cell_width;
-        let pillars = 1
-            + (f32::max(0.0, active_width - min_pillar_width)
-                / (min_pillar_width + pillar_config.padding as f32)) as usize;
-        let pillar_stride = (active_width / pillars as f32).round();
-
-        let columns = (active_width / cell_width) as usize / pillars;
-        let columns = columns.clamp(
-            MIN_COLUMNS,
-            pillar_config.width + pillar_config.slack.unwrap_or(isize::MAX as usize),
-        );
-
-        let virtual_lines = physical_lines * pillars;
+        // TODO: Spread out pillars may have a few pixels left over, deal with these.
+        let virtual_lines = pillars * physical_lines;
+        let pillar_stride = if pillars > 1 {
+            (padded_width - columns as f32 * cell_width) / (pillars as f32 - 1.)
+        } else {
+            padded_width
+        };
         if dynamic_padding {
-            padding_x = Self::dynamic_padding(padding_x.floor(), width, cell_width);
-            padding_y = Self::dynamic_padding(padding_y.floor(), height, cell_height);
+            // If there are multiple pillars, make these fill out the space rather than padding.
+            if pillars == 1 {
+                padding_x = Self::dynamic_padding(padding_x, width, cell_width);
+            }
+            padding_y = Self::dynamic_padding(padding_y, width, cell_width);
         }
-
-        // TODO: Properly compute stride and padding_x according to justify+dynamic.
 
         SizeInfo {
             width,
@@ -287,7 +299,7 @@ impl SizeInfo<f32> {
             virtual_lines,
             columns,
             physical_lines,
-            pillar_stride,
+            pillar_stride: pillar_stride.floor(),
         }
     }
 
@@ -507,7 +519,7 @@ impl Display {
             padding.0,
             padding.1,
             config.window.dynamic_padding && config.window.dimensions().is_none(),
-            &config.window.pillars,
+            Some(&config.window.pillars),
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
@@ -703,7 +715,7 @@ impl Display {
             padding.0,
             padding.1,
             config.window.dynamic_padding,
-            &config.window.pillars,
+            Some(&config.window.pillars),
         );
 
         // Update number of column/lines in the viewport.

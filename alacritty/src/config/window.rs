@@ -273,18 +273,10 @@ pub struct Pillars {
     pub width: usize,
     pub slack: Option<usize>,
     pub padding: usize,
-    pub justify: Justify,
 }
 
 impl Default for Pillars {
     fn default() -> Self {
-        Self { width: i16::MAX as usize, slack: None, padding: 0, justify: Justify::Left }
+        Self { width: i16::MAX as usize, slack: None, padding: 0 }
     }
-}
-
-#[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
-pub enum Justify {
-    Left,
-    Center,
-    Right,
 }
