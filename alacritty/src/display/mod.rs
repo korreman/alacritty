@@ -166,6 +166,9 @@ pub struct SizeInfo<T = f32> {
     /// Number of lines in the physical terminal.
     physical_lines: usize,
 
+    /// Number of pillars
+    pillars: usize,
+
     /// Stride between pillars.
     pillar_stride: T,
 }
@@ -182,6 +185,7 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
             virtual_lines: size_info.virtual_lines,
             columns: size_info.columns,
             physical_lines: size_info.physical_lines,
+            pillars: size_info.pillars,
             pillar_stride: size_info.pillar_stride as u32,
         }
     }
@@ -232,6 +236,11 @@ impl<T: Clone + Copy> SizeInfo<T> {
     #[inline]
     pub fn physical_lines(&self) -> usize {
         self.physical_lines
+    }
+
+    #[inline]
+    pub fn pillars(&self) -> usize {
+        self.pillars
     }
 
     #[inline]
@@ -299,6 +308,7 @@ impl SizeInfo<f32> {
             virtual_lines,
             columns,
             physical_lines,
+            pillars,
             pillar_stride: pillar_stride.floor(),
         }
     }
@@ -919,6 +929,16 @@ impl Display {
         }
 
         let mut rects = lines.rects(&metrics, &size_info);
+        for i in 1..size_info.pillars {
+            let width = 2.;
+            let offset =
+                (size_info.pillar_stride - size_info.columns as f32 * size_info.cell_width) / 2.;
+            let x = size_info.pillar_stride * i as f32 - offset - width / 2.;
+            let height = size_info.height;
+            let color = config.colors.primary.foreground;
+            let rect = RenderRect::new(x, 0., width, height, color, 1.);
+            rects.push(rect);
+        }
 
         if let Some(vi_cursor_point) = vi_cursor_point {
             // Indicate vi mode by showing the cursor's position in the top right corner.
