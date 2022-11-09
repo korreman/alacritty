@@ -134,6 +134,9 @@ pub enum Action {
     /// Reset font size to the config value.
     ResetFontSize,
 
+    /// Toggle pillars.
+    TogglePillars,
+
     /// Scroll exactly one page up.
     ScrollPageUp,
 
@@ -674,12 +677,14 @@ fn common_keybindings() -> Vec<KeyBinding> {
         C,        ModifiersState::CTRL | ModifiersState::SHIFT,
             +BindingMode::VI, ~BindingMode::SEARCH; Action::ClearSelection;
         Insert,   ModifiersState::SHIFT, ~BindingMode::VI; Action::PasteSelection;
+        P,        ModifiersState::CTRL | ModifiersState::SHIFT; Action::TogglePillars;
         Key0,     ModifiersState::CTRL;  Action::ResetFontSize;
         Equals,   ModifiersState::CTRL;  Action::IncreaseFontSize;
         Plus,     ModifiersState::CTRL;  Action::IncreaseFontSize;
         NumpadAdd,      ModifiersState::CTRL;  Action::IncreaseFontSize;
         Minus,          ModifiersState::CTRL;  Action::DecreaseFontSize;
         NumpadSubtract, ModifiersState::CTRL;  Action::DecreaseFontSize;
+
     )
 }
 
@@ -702,6 +707,7 @@ pub fn platform_key_bindings() -> Vec<KeyBinding> {
 pub fn platform_key_bindings() -> Vec<KeyBinding> {
     bindings!(
         KeyBinding;
+        P,              ModifiersState::LOGO; Action::TogglePillars;
         Key0,           ModifiersState::LOGO; Action::ResetFontSize;
         Equals,         ModifiersState::LOGO; Action::IncreaseFontSize;
         Plus,           ModifiersState::LOGO; Action::IncreaseFontSize;

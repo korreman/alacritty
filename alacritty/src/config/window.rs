@@ -270,6 +270,7 @@ impl<'de> Deserialize<'de> for Class {
 
 #[derive(ConfigDeserialize, Debug, Clone, PartialEq)]
 pub struct Pillars {
+    pub enable: bool,
     pub width: usize,
     pub slack: Option<usize>,
     pub padding: usize,
@@ -278,6 +279,12 @@ pub struct Pillars {
 
 impl Default for Pillars {
     fn default() -> Self {
-        Self { width: i16::MAX as usize, slack: None, padding: 0, separator_width: 2.}
+        Self {
+            enable: false,
+            width: i16::MAX as usize,
+            slack: None,
+            padding: 0,
+            separator_width: 2.
+        }
     }
 }
