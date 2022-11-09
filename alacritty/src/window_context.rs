@@ -60,6 +60,7 @@ pub struct WindowContext {
     received_count: usize,
     suppress_chars: bool,
     notifier: Notifier,
+    pillars: bool,
     font_size: Size,
     mouse: Mouse,
     touch: TouchPurpose,
@@ -233,11 +234,13 @@ impl WindowContext {
             event_proxy.send_event(TerminalEvent::CursorBlinkingChange.into());
         }
 
+        let pillars = config.window.pillars.enable;
         let font_size = config.font.size();
 
         // Create context for the Alacritty window.
         Ok(WindowContext {
             preserve_title,
+            pillars,
             font_size,
             terminal,
             display,
@@ -300,6 +303,14 @@ impl WindowContext {
             > f32::EPSILON
         {
             self.display.pending_update.set_cursor_dirty();
+        }
+
+        if old_config.window.pillars.enable != self.config.window.pillars.enable {
+            // Do not update pillars if they have been changed at runtime.
+            if self.pillars == old_config.window.pillars.enable {
+                self.pillars = self.config.window.pillars.enable;
+            }
+            self.display.pending_update.set_pillars(self.pillars);
         }
 
         if old_config.font != self.config.font {
@@ -441,6 +452,7 @@ impl WindowContext {
             suppress_chars: &mut self.suppress_chars,
             search_state: &mut self.search_state,
             modifiers: &mut self.modifiers,
+            pillars: &mut self.pillars,
             font_size: &mut self.font_size,
             notifier: &mut self.notifier,
             display: &mut self.display,

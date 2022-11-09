@@ -274,6 +274,6 @@ pub struct PillarColors {
 
 impl Default for PillarColors {
     fn default() -> Self {
-        PillarColors { separator: Rgb { r: 0x82, g: 0x84, b: 0x82 } }
+        PillarColors { separator: Rgb::new(0x82, 0x84, 0x82) }
     }
 }

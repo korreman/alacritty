@@ -202,6 +202,7 @@ pub struct ActionContext<'a, N, T> {
     pub event_proxy: &'a EventLoopProxy<Event>,
     pub scheduler: &'a mut Scheduler,
     pub search_state: &'a mut SearchState,
+    pub pillars: &'a mut bool,
     pub font_size: &'a mut Size,
     pub dirty: &'a mut bool,
     pub occluded: &'a mut bool,
@@ -441,6 +442,11 @@ impl<'a, N: Notify + 'a, T: EventListener> input::ActionContext<T> for ActionCon
             Ok(_) => debug!("Launched {} with args {:?}", program, args),
             Err(_) => warn!("Unable to launch {} with args {:?}", program, args),
         }
+    }
+
+    fn toggle_pillars(&mut self) {
+        *self.pillars = !*self.pillars;
+        self.display.pending_update.set_pillars(*self.pillars);
     }
 
     fn change_font_size(&mut self, delta: f32) {

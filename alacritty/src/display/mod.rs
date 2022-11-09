@@ -157,17 +157,20 @@ pub struct SizeInfo<T = f32> {
     /// Vertical window padding.
     padding_y: T,
 
-    /// Number of lines in the virtual (long) viewport.
-    virtual_lines: usize,
-
     /// Number of columns in the virtual viewport.
     columns: usize,
 
     /// Number of lines in the physical terminal.
     physical_lines: usize,
 
+    /// Whether pillars are enabled or not.
+    pillars_enabled: bool,
+
     /// Number of pillars
     pillars: usize,
+
+    /// Number of lines in the virtual (long) viewport.
+    virtual_lines: usize,
 
     /// Stride between pillars.
     pillar_stride: T,
@@ -182,10 +185,11 @@ impl From<SizeInfo<f32>> for SizeInfo<u32> {
             cell_height: size_info.cell_height as u32,
             padding_x: size_info.padding_x as u32,
             padding_y: size_info.padding_y as u32,
-            virtual_lines: size_info.virtual_lines,
             columns: size_info.columns,
             physical_lines: size_info.physical_lines,
+            pillars_enabled: size_info.pillars_enabled,
             pillars: size_info.pillars,
+            virtual_lines: size_info.virtual_lines,
             pillar_stride: size_info.pillar_stride as u32,
         }
     }
@@ -305,10 +309,11 @@ impl SizeInfo<f32> {
             cell_height,
             padding_x: padding_x.floor(),
             padding_y: padding_y.floor(),
-            virtual_lines,
             columns,
             physical_lines,
+            pillars_enabled: pillar_config.is_some(),
             pillars,
+            virtual_lines,
             pillar_stride: pillar_stride.floor(),
         }
     }
@@ -387,6 +392,7 @@ pub struct DisplayUpdate {
 
     dimensions: Option<PhysicalSize<u32>>,
     cursor_dirty: bool,
+    pillars: Option<bool>,
     font: Option<Font>,
 }
 
@@ -405,6 +411,11 @@ impl DisplayUpdate {
 
     pub fn set_dimensions(&mut self, dimensions: PhysicalSize<u32>) {
         self.dimensions = Some(dimensions);
+        self.dirty = true;
+    }
+
+    pub fn set_pillars(&mut self, pillars: bool) {
+        self.pillars = Some(pillars);
         self.dirty = true;
     }
 
@@ -529,7 +540,7 @@ impl Display {
             padding.0,
             padding.1,
             config.window.dynamic_padding && config.window.dimensions().is_none(),
-            Some(&config.window.pillars),
+            config.window.pillars.enable.then_some(&config.window.pillars),
         );
 
         info!("Cell size: {} x {}", cell_width, cell_height);
@@ -716,6 +727,7 @@ impl Display {
         }
 
         let padding = config.window.padding(self.window.scale_factor as f32);
+        let pillars = pending_update.pillars.unwrap_or(self.size_info.pillars_enabled);
 
         let mut new_size = SizeInfo::new(
             width,
@@ -725,7 +737,7 @@ impl Display {
             padding.0,
             padding.1,
             config.window.dynamic_padding,
-            Some(&config.window.pillars),
+            pillars.then_some(&config.window.pillars),
         );
 
         // Update number of column/lines in the viewport.
